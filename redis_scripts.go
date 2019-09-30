@@ -41,4 +41,45 @@ var redisScripts = map[string]string{
 
 		return jobId
 	`,
+
+	"ack": `
+		local call = redis.call
+
+		local unackedQueue = KEYS[1]
+		local jobId = tonumber(ARGV[1])
+
+		local count = call("LREM", unackedQueue, 1, jobId)
+		call("DEL", jobId .. "_value")
+		call("DEL", jobId .. "_priority")
+
+		return count
+	`,
+
+	"move": `
+		local call = redis.call
+
+		local sourceQueue = KEYS[1]
+		local destinationQueue = KEYS[2]
+		local priorityQueueSource = KEYS[3]
+		local priorityQueueDestination = KEYS[4]
+
+		local jobId = tonumber(ARGV[1])
+
+		call("LREM", sourceQueue, 1, jobId)
+
+		if priorityQueueSource then
+			call("ZREM", priorityQueueSource, jobId)
+		end
+
+		if priorityQueueDestination then
+			local jobPriority = call("GET", jobId .. "_priority")
+			if jobPriority == 0 then
+				call('LPUSH', destinationQueue, jobId);
+			else
+				call("ZADD", priorityQueueDestination, jobPriority,  jobId)
+			end
+		else
+			call("LPUSH", destinationQueue, jobId)
+		end
+	`,
 }

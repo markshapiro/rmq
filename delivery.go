@@ -47,10 +47,15 @@ func (delivery *wrapDelivery) Payload() string {
 }
 
 func (delivery *wrapDelivery) Ack() bool {
-	// debug(fmt.Sprintf("delivery ack %s", delivery)) // COMMENTOUT
-
-	count, ok := delivery.redisClient.LRem(delivery.unackedKey, 1, delivery.payload)
-	return ok && count == 1
+	cmd := delivery.redisClient.RunShaScript("ack", []string{delivery.unackedKey}, delivery.id)
+	if cmd.Err() != nil && cmd.Err() != redis.Nil {
+		return false
+	}
+	count, err := cmd.Int()
+	if err != nil {
+		return false
+	}
+	return count == 1
 }
 
 func (delivery *wrapDelivery) Reject() bool {
@@ -66,14 +71,9 @@ func (delivery *wrapDelivery) Push() bool {
 }
 
 func (delivery *wrapDelivery) move(key string) bool {
-	if ok := delivery.redisClient.LPush(key, delivery.payload); !ok {
+	cmd := delivery.redisClient.RunShaScript("move", []string{delivery.unackedKey, key}, delivery.id)
+	if cmd.Err() != nil && cmd.Err() != redis.Nil {
 		return false
 	}
-
-	if _, ok := delivery.redisClient.LRem(delivery.unackedKey, 1, delivery.payload); !ok {
-		return false
-	}
-
-	// debug(fmt.Sprintf("delivery rejected %s", delivery)) // COMMENTOUT
 	return true
 }
