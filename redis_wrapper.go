@@ -46,10 +46,6 @@ func (wrapper RedisWrapper) TTL(key string) (ttl time.Duration, ok bool) {
 	return ttl, ok
 }
 
-func (wrapper RedisWrapper) LPush(key, value string) bool {
-	return checkErr(wrapper.rawClient.LPush(key, value).Err())
-}
-
 func (wrapper RedisWrapper) LLen(key string) (affected int, ok bool) {
 	n, err := wrapper.rawClient.LLen(key).Result()
 	ok = checkErr(err)
@@ -57,20 +53,6 @@ func (wrapper RedisWrapper) LLen(key string) (affected int, ok bool) {
 		return 0, false
 	}
 	return int(n), ok
-}
-
-func (wrapper RedisWrapper) LRem(key string, count int, value string) (affected int, ok bool) {
-	n, err := wrapper.rawClient.LRem(key, int64(count), value).Result()
-	return int(n), checkErr(err)
-}
-
-func (wrapper RedisWrapper) LTrim(key string, start, stop int) {
-	checkErr(wrapper.rawClient.LTrim(key, int64(start), int64(stop)).Err())
-}
-
-func (wrapper RedisWrapper) RPopLPush(source, destination string) (value string, ok bool) {
-	value, err := wrapper.rawClient.RPopLPush(source, destination).Result()
-	return value, checkErr(err)
 }
 
 func (wrapper RedisWrapper) SAdd(key, value string) bool {
