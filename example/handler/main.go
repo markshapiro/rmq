@@ -5,11 +5,11 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/adjust/rmq"
+	"github.com/markshapiro/rmq"
 )
 
 func main() {
-	connection := rmq.OpenConnection("handler", "tcp", "localhost:6379", 2)
+	connection := rmq.OpenConnection("handler", "tcp", "localhost:6379", 2, false)
 	http.Handle("/overview", NewHandler(connection))
 	fmt.Printf("Handler listening on http://localhost:3333/overview\n")
 	http.ListenAndServe(":3333", nil)

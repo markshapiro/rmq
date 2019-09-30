@@ -5,7 +5,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/adjust/rmq"
+	"github.com/markshapiro/rmq"
 )
 
 const (
@@ -15,7 +15,7 @@ const (
 )
 
 func main() {
-	connection := rmq.OpenConnection("consumer", "tcp", "localhost:6379", 2)
+	connection := rmq.OpenConnection("consumer", "tcp", "localhost:6379", 2, false)
 	queue := connection.OpenQueue("things")
 	queue.StartConsuming(unackedLimit, 500*time.Millisecond)
 	for i := 0; i < numConsumers; i++ {

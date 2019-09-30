@@ -5,7 +5,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/adjust/rmq"
+	"github.com/markshapiro/rmq"
 )
 
 const (
@@ -14,20 +14,20 @@ const (
 )
 
 func main() {
-	connection := rmq.OpenConnection("producer", "tcp", "localhost:6379", 2)
+	connection := rmq.OpenConnection("producer", "tcp", "localhost:6379", 2, false)
 	things := connection.OpenQueue("things")
 	balls := connection.OpenQueue("balls")
 	var before time.Time
 
 	for i := 0; i < numDeliveries; i++ {
 		delivery := fmt.Sprintf("delivery %d", i)
-		things.Publish(delivery)
+		things.Publish(delivery, 0)
 		if i%batchSize == 0 {
 			duration := time.Now().Sub(before)
 			before = time.Now()
 			perSecond := time.Second / (duration / batchSize)
 			log.Printf("produced %d %s %d", i, delivery, perSecond)
-			balls.Publish("ball")
+			balls.Publish("ball", 0)
 		}
 	}
 }
