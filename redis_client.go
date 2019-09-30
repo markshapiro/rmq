@@ -10,7 +10,8 @@ type RedisClient interface {
 	GetClient() *redis.Client
 
 	// simple keys
-	Set(key string, value string, expiration time.Duration) bool
+	Set(key string, value interface{}, expiration time.Duration) bool
+	Get(key string) (error, interface{})
 	Del(key string) (affected int, ok bool)      // default affected: 0
 	TTL(key string) (ttl time.Duration, ok bool) // default ttl: 0
 

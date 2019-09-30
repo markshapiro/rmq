@@ -2,9 +2,12 @@ package rmq
 
 import (
 	"fmt"
+
+	"github.com/go-redis/redis"
 )
 
 type Delivery interface {
+	Id() int
 	Payload() string
 	Ack() bool
 	Reject() bool
@@ -12,6 +15,7 @@ type Delivery interface {
 }
 
 type wrapDelivery struct {
+	id          int
 	payload     string
 	unackedKey  string
 	rejectedKey string
@@ -19,8 +23,9 @@ type wrapDelivery struct {
 	redisClient RedisClient
 }
 
-func newDelivery(payload, unackedKey, rejectedKey, pushKey string, redisClient RedisClient) *wrapDelivery {
+func newDelivery(id int, payload, unackedKey, rejectedKey, pushKey string, redisClient RedisClient) *wrapDelivery {
 	return &wrapDelivery{
+		id:          id,
 		payload:     payload,
 		unackedKey:  unackedKey,
 		rejectedKey: rejectedKey,
@@ -31,6 +36,10 @@ func newDelivery(payload, unackedKey, rejectedKey, pushKey string, redisClient R
 
 func (delivery *wrapDelivery) String() string {
 	return fmt.Sprintf("[%s %s]", delivery.payload, delivery.unackedKey)
+}
+
+func (delivery *wrapDelivery) Id() int {
+	return delivery.id
 }
 
 func (delivery *wrapDelivery) Payload() string {

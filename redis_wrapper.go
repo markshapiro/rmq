@@ -16,8 +16,16 @@ func (wrapper RedisWrapper) GetClient() *redis.Client {
 	return wrapper.rawClient
 }
 
-func (wrapper RedisWrapper) Set(key string, value string, expiration time.Duration) bool {
+func (wrapper RedisWrapper) Set(key string, value interface{}, expiration time.Duration) bool {
 	return checkErr(wrapper.rawClient.Set(key, value, expiration).Err())
+}
+
+func (wrapper RedisWrapper) Get(key string) (error, interface{}) {
+	res, err := wrapper.rawClient.Get(key).Result()
+	if err != nil {
+		return err, ""
+	}
+	return nil, res
 }
 
 func (wrapper RedisWrapper) Del(key string) (affected int, ok bool) {

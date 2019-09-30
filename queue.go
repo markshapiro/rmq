@@ -3,12 +3,14 @@ package rmq
 import (
 	"fmt"
 	"log"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/adjust/uniuri"
+	"github.com/go-redis/redis"
 )
 
 const (
@@ -21,6 +23,7 @@ const (
 	queuesKey             = "rmq::queues"                     // Set of all open queues
 	queueReadyTemplate    = "rmq::queue::[{queue}]::ready"    // List of deliveries in that {queue} (right is first and oldest, left is last and youngest)
 	queueRejectedTemplate = "rmq::queue::[{queue}]::rejected" // List of rejected deliveries from that {queue}
+	queuePriorityTemplate = "rmq::queue::[{queue}]::priority"
 
 	phConnection = "{connection}" // connection name
 	phQueue      = "{queue}"      // queue name
@@ -31,8 +34,8 @@ const (
 )
 
 type Queue interface {
-	Publish(payload string) bool
-	PublishBytes(payload []byte) bool
+	Publish(payload string, priority int) bool
+	PublishBytes(payload []byte, priority int) bool
 	SetPushQueue(pushQueue Queue)
 	StartConsuming(prefetchLimit int, pollDuration time.Duration) bool
 	StopConsuming() <-chan struct{}
@@ -54,6 +57,7 @@ type redisQueue struct {
 	consumersKey     string // key to set of consumers using this connection
 	readyKey         string // key to list of ready deliveries
 	rejectedKey      string // key to list of rejected deliveries
+	priorityKey      string
 	unackedKey       string // key to list of currently consuming deliveries
 	pushKey          string // key to list of pushed deliveries
 	redisClient      RedisClient
@@ -70,6 +74,7 @@ func newQueue(name, connectionName, queuesKey string, redisClient RedisClient) *
 
 	readyKey := strings.Replace(queueReadyTemplate, phQueue, name, 1)
 	rejectedKey := strings.Replace(queueRejectedTemplate, phQueue, name, 1)
+	priorityKey := strings.Replace(queuePriorityTemplate, phQueue, name, 1)
 
 	unackedKey := strings.Replace(connectionQueueUnackedTemplate, phConnection, connectionName, 1)
 	unackedKey = strings.Replace(unackedKey, phQueue, name, 1)
@@ -81,10 +86,12 @@ func newQueue(name, connectionName, queuesKey string, redisClient RedisClient) *
 		consumersKey:     consumersKey,
 		readyKey:         readyKey,
 		rejectedKey:      rejectedKey,
+		priorityKey:      priorityKey,
 		unackedKey:       unackedKey,
 		redisClient:      redisClient,
 		consumingStopped: 1, // start with stopped status
 	}
+
 	return queue
 }
 
@@ -93,14 +100,19 @@ func (queue *redisQueue) String() string {
 }
 
 // Publish adds a delivery with the given payload to the queue
-func (queue *redisQueue) Publish(payload string) bool {
-	// debug(fmt.Sprintf("publish %s %s", payload, queue)) // COMMENTOUT
-	return queue.redisClient.LPush(queue.readyKey, payload)
+func (queue *redisQueue) Publish(payload string, priority int) bool {
+	cmd := queue.redisClient.RunShaScript("publish", []string{queue.readyKey, queue.priorityKey}, payload, priority)
+
+	if cmd.Err() != nil && cmd.Err() != redis.Nil {
+		return false
+	}
+
+	return true
 }
 
 // PublishBytes just casts the bytes and calls Publish
-func (queue *redisQueue) PublishBytes(payload []byte) bool {
-	return queue.Publish(string(payload))
+func (queue *redisQueue) PublishBytes(payload []byte, priority int) bool {
+	return queue.Publish(string(payload), priority)
 }
 
 // PurgeReady removes all ready deliveries from the queue and returns the number of purged deliveries
@@ -324,19 +336,32 @@ func (queue *redisQueue) batchSize() int {
 
 // consumeBatch tries to read batchSize deliveries, returns true if any and all were consumed
 func (queue *redisQueue) consumeBatch(batchSize int) bool {
+
 	if batchSize == 0 {
 		return false
 	}
 
 	for i := 0; i < batchSize; i++ {
-		value, ok := queue.redisClient.RPopLPush(queue.readyKey, queue.unackedKey)
-		if !ok {
-			// debug(fmt.Sprintf("rmq queue consumed last batch %s %d", queue, i)) // COMMENTOUT
+
+		cmd := queue.redisClient.RunShaScript("consume", []string{queue.readyKey, queue.unackedKey, queue.priorityKey})
+
+		if cmd.Err() != nil && cmd.Err() != redis.Nil {
 			return false
 		}
 
-		// debug(fmt.Sprintf("consume %d/%d %s %s", i, batchSize, value, queue)) // COMMENTOUT
-		queue.deliveryChan <- newDelivery(value, queue.unackedKey, queue.rejectedKey, queue.pushKey, queue.redisClient)
+		id, err := cmd.Int()
+
+		if err != nil {
+			return false
+		}
+
+		err, val := queue.redisClient.Get(strconv.Itoa(id) + "_value")
+		if err != nil {
+			return false
+		}
+
+		// debug(fmt.Sprintf("consume %d/%d %s %s", i, batchSize, id, queue)) // COMMENTOUT
+		queue.deliveryChan <- newDelivery(id, val.(string), queue.unackedKey, queue.rejectedKey, queue.pushKey, queue.redisClient)
 	}
 
 	// debug(fmt.Sprintf("rmq queue consumed batch %s %d", queue, batchSize)) // COMMENTOUT
