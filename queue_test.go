@@ -208,6 +208,43 @@ func (suite *QueueSuite) TestConsumer(c *C) {
 	connection.StopHeartbeat()
 }
 
+func (suite *QueueSuite) TestPriority(c *C) {
+	connection := OpenConnection("cons-priority", "tcp", "localhost:6379", 1, false)
+	c.Assert(connection, NotNil)
+	queue1 := connection.OpenQueue("cons-q").(*redisQueue)
+	c.Assert(queue1, NotNil)
+	queue1.PurgeReady()
+	c.Check(queue1.Publish("task1", 0), Equals, true)
+	c.Check(queue1.Publish("task2", 1), Equals, true)
+	c.Check(queue1.Publish("task3", 0), Equals, true)
+	c.Check(queue1.Publish("task4", 3), Equals, true)
+	c.Check(queue1.Publish("task5", 2), Equals, true)
+	c.Check(queue1.Publish("task6", 4), Equals, true)
+	c.Check(queue1.Publish("task7", 0), Equals, true)
+	c.Check(queue1.Publish("task8", 2), Equals, true)
+	c.Check(queue1.Publish("task9", 2), Equals, true)
+	c.Check(queue1.Publish("task10", 0), Equals, true)
+	// start consume only after publishing, otherwise some tasks may be processed before the task with higher priority is even published
+	consumer := NewTestConsumer("cons-A")
+	consumer.AutoAck = false
+	queue1.StartConsuming(10, time.Millisecond)
+	queue1.AddConsumer("cons-cons", consumer)
+	c.Check(consumer.LastDelivery, IsNil)
+	time.Sleep(50 * time.Millisecond)
+	c.Check(consumer.LastDeliveries[0].Payload(), Equals, "task6")
+	c.Check(consumer.LastDeliveries[1].Payload(), Equals, "task4")
+	c.Check(consumer.LastDeliveries[2].Payload(), Equals, "task9")
+	c.Check(consumer.LastDeliveries[3].Payload(), Equals, "task8")
+	c.Check(consumer.LastDeliveries[4].Payload(), Equals, "task5")
+	c.Check(consumer.LastDeliveries[5].Payload(), Equals, "task2")
+	c.Check(consumer.LastDeliveries[6].Payload(), Equals, "task1")
+	c.Check(consumer.LastDeliveries[7].Payload(), Equals, "task3")
+	c.Check(consumer.LastDeliveries[8].Payload(), Equals, "task7")
+	c.Check(consumer.LastDeliveries[9].Payload(), Equals, "task10")
+	queue1.StopConsuming()
+	connection.StopHeartbeat()
+}
+
 func (suite *QueueSuite) TestMulti(c *C) {
 	connection := OpenConnection("multi-conn", "tcp", "localhost:6379", 1, true)
 	queue := connection.OpenQueue("multi-q").(*redisQueue)
