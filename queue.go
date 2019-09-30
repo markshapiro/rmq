@@ -150,7 +150,18 @@ func (queue *redisQueue) Close() bool {
 }
 
 func (queue *redisQueue) ReadyCount() int {
+	count := queue.ReadyNormalCount()
+	countPriority := queue.ReadyPriorityCount()
+	return count + countPriority
+}
+
+func (queue *redisQueue) ReadyNormalCount() int {
 	count, _ := queue.redisClient.LLen(queue.readyKey)
+	return count
+}
+
+func (queue *redisQueue) ReadyPriorityCount() int {
+	count, _ := queue.redisClient.SCount(queue.priorityKey)
 	return count
 }
 

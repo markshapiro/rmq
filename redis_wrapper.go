@@ -94,6 +94,15 @@ func (wrapper RedisWrapper) SRem(key, value string) (affected int, ok bool) {
 	return int(n), ok
 }
 
+func (wrapper RedisWrapper) SCount(key string) (affected int, ok bool) {
+	n, err := wrapper.rawClient.ZCount(key, "-inf", "+inf").Result()
+	ok = checkErr(err)
+	if !ok {
+		return 0, false
+	}
+	return int(n), ok
+}
+
 func (wrapper RedisWrapper) FlushDb() {
 	wrapper.rawClient.FlushDB()
 }

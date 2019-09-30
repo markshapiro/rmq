@@ -22,22 +22,28 @@ func (stat ConnectionStat) String() string {
 type ConnectionStats map[string]ConnectionStat
 
 type QueueStat struct {
-	ReadyCount      int `json:"ready"`
-	RejectedCount   int `json:"rejected"`
-	connectionStats ConnectionStats
+	ReadyCount         int `json:"ready"`
+	ReadyNormalCount   int `json:readyNormal"`
+	ReadyPriorityCount int `json:"readyPriority"`
+	RejectedCount      int `json:"rejected"`
+	connectionStats    ConnectionStats
 }
 
-func NewQueueStat(readyCount, rejectedCount int) QueueStat {
+func NewQueueStat(readyCount, readyNormalCount, readyPriorityCount, rejectedCount int) QueueStat {
 	return QueueStat{
-		ReadyCount:      readyCount,
-		RejectedCount:   rejectedCount,
-		connectionStats: ConnectionStats{},
+		ReadyCount:         readyCount,
+		ReadyNormalCount:   readyNormalCount,
+		ReadyPriorityCount: readyPriorityCount,
+		RejectedCount:      rejectedCount,
+		connectionStats:    ConnectionStats{},
 	}
 }
 
 func (stat QueueStat) String() string {
-	return fmt.Sprintf("[ready:%d rejected:%d conn:%s",
+	return fmt.Sprintf("[ready:%d (%d+%d) rejected:%d conn:%s",
 		stat.ReadyCount,
+		stat.ReadyNormalCount,
+		stat.ReadyPriorityCount,
 		stat.RejectedCount,
 		stat.connectionStats,
 	)
@@ -81,7 +87,7 @@ func CollectStats(queueList []string, mainConnection *redisConnection) Stats {
 	stats := NewStats()
 	for _, queueName := range queueList {
 		queue := mainConnection.openQueue(queueName)
-		stats.QueueStats[queueName] = NewQueueStat(queue.ReadyCount(), queue.RejectedCount())
+		stats.QueueStats[queueName] = NewQueueStat(queue.ReadyCount(), queue.ReadyNormalCount(), queue.ReadyPriorityCount(), queue.RejectedCount())
 	}
 
 	connectionNames := mainConnection.GetConnections()
@@ -117,8 +123,8 @@ func (stats Stats) String() string {
 	var buffer bytes.Buffer
 
 	for queueName, queueStat := range stats.QueueStats {
-		buffer.WriteString(fmt.Sprintf("    queue:%s ready:%d rejected:%d unacked:%d consumers:%d\n",
-			queueName, queueStat.ReadyCount, queueStat.RejectedCount, queueStat.UnackedCount(), queueStat.ConsumerCount(),
+		buffer.WriteString(fmt.Sprintf("    queue:%s ready:%d (%d+%d) rejected:%d unacked:%d consumers:%d\n",
+			queueName, queueStat.ReadyCount, queueStat.ReadyNormalCount, queueStat.ReadyPriorityCount, queueStat.RejectedCount, queueStat.UnackedCount(), queueStat.ConsumerCount(),
 		))
 
 		for connectionName, connectionStat := range queueStat.connectionStats {
@@ -160,13 +166,13 @@ func (stats Stats) GetHtml(layout, refresh string) string {
 		connectionNames := queueStat.connectionStats.sortedNames()
 		buffer.WriteString(fmt.Sprintf(`<tr><td>`+
 			`%s</td><td></td><td>`+
-			`%d</td><td></td><td>`+
+			`%d (%d+%d)</td><td></td><td>`+
 			`%d</td><td></td><td>`+
 			`%s</td><td></td><td>`+
 			`%d</td><td></td><td>`+
 			`%d</td><td></td><td>`+
 			`%d</td><td></td></tr>`,
-			queueName, queueStat.ReadyCount, queueStat.RejectedCount, "", len(connectionNames), queueStat.UnackedCount(), queueStat.ConsumerCount(),
+			queueName, queueStat.ReadyCount, queueStat.ReadyNormalCount, queueStat.ReadyPriorityCount, queueStat.RejectedCount, "", len(connectionNames), queueStat.UnackedCount(), queueStat.ConsumerCount(),
 		))
 
 		if layout != "condensed" {
