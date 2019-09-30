@@ -17,13 +17,13 @@ func (queue *TestQueue) String() string {
 	return queue.name
 }
 
-func (queue *TestQueue) Publish(payload string) bool {
+func (queue *TestQueue) Publish(payload string, priority int) bool {
 	queue.LastDeliveries = append(queue.LastDeliveries, payload)
 	return true
 }
 
-func (queue *TestQueue) PublishBytes(payload []byte) bool {
-	return queue.Publish(string(payload))
+func (queue *TestQueue) PublishBytes(payload []byte, priority int) bool {
+	return queue.Publish(string(payload), priority)
 }
 
 func (queue *TestQueue) SetPushQueue(pushQueue Queue) {
@@ -66,6 +66,10 @@ func (queue *TestQueue) PurgeReady() int {
 }
 
 func (queue *TestQueue) PurgeRejected() int {
+	return 0
+}
+
+func (queue *TestQueue) ReturnAllUnacked() int {
 	return 0
 }
 

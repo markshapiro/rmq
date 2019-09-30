@@ -14,24 +14,24 @@ func TestStatsSuite(t *testing.T) {
 type StatsSuite struct{}
 
 func (suite *StatsSuite) TestStats(c *C) {
-	connection := OpenConnection("stats-conn", "tcp", "localhost:6379", 1)
+	connection := OpenConnection("stats-conn", "tcp", "localhost:6379", 1, false)
 	c.Assert(NewCleaner(connection).Clean(), IsNil)
 
-	conn1 := OpenConnection("stats-conn1", "tcp", "localhost:6379", 1)
-	conn2 := OpenConnection("stats-conn2", "tcp", "localhost:6379", 1)
+	conn1 := OpenConnection("stats-conn1", "tcp", "localhost:6379", 1, false)
+	conn2 := OpenConnection("stats-conn2", "tcp", "localhost:6379", 1, false)
 	q1 := conn2.OpenQueue("stats-q1").(*redisQueue)
 	q1.PurgeReady()
-	q1.Publish("stats-d1")
+	q1.Publish("stats-d1", 0)
 	q2 := conn2.OpenQueue("stats-q2").(*redisQueue)
 	q2.PurgeReady()
 	consumer := NewTestConsumer("hand-A")
 	consumer.AutoAck = false
 	q2.StartConsuming(10, time.Millisecond)
 	q2.AddConsumer("stats-cons1", consumer)
-	q2.Publish("stats-d2")
-	q2.Publish("stats-d3")
-	q2.Publish("stats-d4")
-	time.Sleep(2 * time.Millisecond)
+	q2.Publish("stats-d2", 0)
+	q2.Publish("stats-d3", 0)
+	q2.Publish("stats-d4", 0)
+	time.Sleep(50 * time.Millisecond)
 	consumer.LastDeliveries[0].Ack()
 	consumer.LastDeliveries[1].Reject()
 	q2.AddConsumer("stats-cons2", NewTestConsumer("hand-B"))
@@ -62,4 +62,6 @@ func (suite *StatsSuite) TestStats(c *C) {
 	connection.StopHeartbeat()
 	conn1.StopHeartbeat()
 	conn2.StopHeartbeat()
+
+	time.Sleep(1000 * time.Millisecond)
 }

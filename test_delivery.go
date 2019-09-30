@@ -26,6 +26,10 @@ func NewTestDeliveryString(payload string) *TestDelivery {
 	}
 }
 
+func (delivery *TestDelivery) Id() int {
+	return 0
+}
+
 func (delivery *TestDelivery) Payload() string {
 	return delivery.payload
 }
