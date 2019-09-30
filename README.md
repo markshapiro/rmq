@@ -7,7 +7,7 @@
 <br/>-option to run queue cleaner automatically in background once per minute
 <br/>&nbsp;will run once even with multiple number of connections (using distributed lock)
 <br/>-adjusted tests to fit the new functionality, and to pass for old functionality
-<br/>-adjusted examples to new functionality
+<br/>-adjusted examples to new functionality, made example for priority
 
 #### todo:
 -list items of each queue
