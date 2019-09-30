@@ -4,8 +4,7 @@
 -tasks can be assigned a priority number (to be processed sooner from "ready" queue)
 <br/>-queues now hold ids of tasks (integers) instead of payloads
 <br/>-introduced redis lua scripts for isolation
-<br/>-option to run queue cleaner automatically in background once per minute
-<br/> will run once even with multiple number of connections (using distributed lock)
+<br/>-option to run queue cleaner automatically in background once per minute, will run once even with multiple number of connections (using distributed lock)
 <br/>-adjusted tests to fit the new functionality, and to pass for old functionality
 <br/>-adjusted examples to new functionality
 
