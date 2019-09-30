@@ -30,9 +30,21 @@ type redisConnection struct {
 	heartbeatStopped bool
 }
 
+func createShaScripts(redisClient *redis.Client) map[string]string {
+	scripts := make(map[string]string)
+	var err error
+	for key, val := range redisScripts {
+		scripts[key], err = redisClient.ScriptLoad(val).Result()
+		if err != nil {
+			log.Fatalln(err)
+		}
+	}
+	return scripts
+}
+
 // OpenConnectionWithRedisClient opens and returns a new connection
 func OpenConnectionWithRedisClient(tag string, redisClient *redis.Client, autoClean bool) *redisConnection {
-	return openConnectionWithRedisClient(tag, RedisWrapper{redisClient}, autoClean)
+	return openConnectionWithRedisClient(tag, RedisWrapper{redisClient, createShaScripts(redisClient)}, autoClean)
 }
 
 func openConnectionWithRedisClient(tag string, redisClient RedisClient, autoClean bool) *redisConnection {

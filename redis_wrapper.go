@@ -9,6 +9,7 @@ import (
 
 type RedisWrapper struct {
 	rawClient *redis.Client
+	scripts   map[string]string
 }
 
 func (wrapper RedisWrapper) GetClient() *redis.Client {
@@ -87,6 +88,14 @@ func (wrapper RedisWrapper) SRem(key, value string) (affected int, ok bool) {
 
 func (wrapper RedisWrapper) FlushDb() {
 	wrapper.rawClient.FlushDB()
+}
+
+func (wrapper RedisWrapper) RunShaScript(shaScriptKey string, keys []string, args ...interface{}) *redis.Cmd {
+	cmd := wrapper.rawClient.EvalSha(wrapper.scripts[shaScriptKey], keys, args...)
+	if cmd.Err() != nil && cmd.Err() != redis.Nil {
+		log.Println("RunShaScript Error: operation=" + shaScriptKey + " message=" + cmd.Err().Error())
+	}
+	return cmd
 }
 
 // checkErr returns true if there is no error, false if the result error is nil and panics if there's another error

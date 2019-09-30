@@ -26,6 +26,8 @@ type RedisClient interface {
 	SMembers(key string) (members []string)         // default members: []string{}
 	SRem(key, value string) (affected int, ok bool) // default affected: 0
 
+	RunShaScript(shaScriptKey string, keys []string, args ...interface{}) *redis.Cmd
+
 	// special
 	FlushDb()
 }
