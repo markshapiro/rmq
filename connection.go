@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/adjust/uniuri"
+	"github.com/bsm/redislock"
 	"github.com/go-redis/redis"
 )
 
@@ -30,17 +31,11 @@ type redisConnection struct {
 }
 
 // OpenConnectionWithRedisClient opens and returns a new connection
-func OpenConnectionWithRedisClient(tag string, redisClient *redis.Client) *redisConnection {
-	return openConnectionWithRedisClient(tag, RedisWrapper{redisClient})
+func OpenConnectionWithRedisClient(tag string, redisClient *redis.Client, autoClean bool) *redisConnection {
+	return openConnectionWithRedisClient(tag, RedisWrapper{redisClient}, autoClean)
 }
 
-// OpenConnectionWithTestRedisClient opens and returns a new connection which
-// uses a test redis client internally. This is useful in integration tests.
-func OpenConnectionWithTestRedisClient(tag string) *redisConnection {
-	return openConnectionWithRedisClient(tag, NewTestRedisClient())
-}
-
-func openConnectionWithRedisClient(tag string, redisClient RedisClient) *redisConnection {
+func openConnectionWithRedisClient(tag string, redisClient RedisClient, autoClean bool) *redisConnection {
 	name := fmt.Sprintf("%s-%s", tag, uniuri.NewLen(6))
 
 	connection := &redisConnection{
@@ -59,17 +54,44 @@ func openConnectionWithRedisClient(tag string, redisClient RedisClient) *redisCo
 
 	go connection.heartbeat()
 	// log.Printf("rmq connection connected to %s %s:%s %d", name, network, address, db)
+
+	if autoClean {
+		runCleanerLoop(connection)
+	}
+
 	return connection
 }
 
+func runCleanerLoop(connection *redisConnection) {
+	locker := redislock.New(connection.redisClient.GetClient())
+	cleaner := NewCleaner(connection)
+	go func() {
+		for true {
+			lock, err := locker.Obtain("queue_cleaner", 120*time.Second, nil)
+			if err == redislock.ErrNotObtained {
+				time.Sleep(60 * time.Second)
+				continue
+			} else if err != nil {
+				log.Fatalln(err)
+			}
+
+			cleaner.Clean()
+
+			time.Sleep(60 * time.Second)
+
+			lock.Release()
+		}
+	}()
+}
+
 // OpenConnection opens and returns a new connection
-func OpenConnection(tag, network, address string, db int) *redisConnection {
+func OpenConnection(tag, network, address string, db int, autoClean bool) *redisConnection {
 	redisClient := redis.NewClient(&redis.Options{
 		Network: network,
 		Addr:    address,
 		DB:      db,
 	})
-	return OpenConnectionWithRedisClient(tag, redisClient)
+	return OpenConnectionWithRedisClient(tag, redisClient, autoClean)
 }
 
 // OpenQueue opens and returns the queue with a given name

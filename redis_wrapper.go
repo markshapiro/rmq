@@ -11,6 +11,10 @@ type RedisWrapper struct {
 	rawClient *redis.Client
 }
 
+func (wrapper RedisWrapper) GetClient() *redis.Client {
+	return wrapper.rawClient
+}
+
 func (wrapper RedisWrapper) Set(key string, value string, expiration time.Duration) bool {
 	return checkErr(wrapper.rawClient.Set(key, value, expiration).Err())
 }
@@ -82,7 +86,7 @@ func (wrapper RedisWrapper) SRem(key, value string) (affected int, ok bool) {
 }
 
 func (wrapper RedisWrapper) FlushDb() {
-	wrapper.rawClient.FlushDb()
+	wrapper.rawClient.FlushDB()
 }
 
 // checkErr returns true if there is no error, false if the result error is nil and panics if there's another error

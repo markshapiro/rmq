@@ -1,8 +1,14 @@
 package rmq
 
-import "time"
+import (
+	"time"
+
+	"github.com/go-redis/redis"
+)
 
 type RedisClient interface {
+	GetClient() *redis.Client
+
 	// simple keys
 	Set(key string, value string, expiration time.Duration) bool
 	Del(key string) (affected int, ok bool)      // default affected: 0
