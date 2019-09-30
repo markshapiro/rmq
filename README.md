@@ -6,8 +6,8 @@
 <br/>-introduced redis lua scripts for isolation
 <br/>-option to run queue cleaner automatically in background once per minute
 <br/>&nbsp;will run once even with multiple number of connections (using distributed lock)
-<br/>-adjusted tests to fit the new functionality, and to pass for old functionality
-<br/>-adjusted examples to new functionality, made example for priority
+<br/>-added tests for priority, adjusted old tests to new functionality
+<br/>-added example for priority, adjusted old examples to new functionality
 
 #### todo:
 -list items of each queue
