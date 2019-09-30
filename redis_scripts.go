@@ -82,4 +82,64 @@ var redisScripts = map[string]string{
 			call("LPUSH", destinationQueue, jobId)
 		end
 	`,
+
+	"return": `
+		local call = redis.call
+
+		local fromQueue = KEYS[1]
+		local readyQueue = KEYS[2]
+		local priorityQueue = KEYS[3]
+		local count = tonumber(ARGV[1])
+		local countAffected = 0
+
+		if not count then
+			count = call("LLen", fromQueue)
+		end
+
+		for i=1,count do
+			local jobId = call("RPop", fromQueue)
+			if jobId then
+				local jobPriority = call("GET", jobId .. "_priority")
+				if jobPriority == 0 then
+					call('LPUSH', readyQueue, jobId);
+				else
+					call("ZADD", priorityQueue, jobPriority,  jobId)
+				end
+				countAffected = countAffected + 1
+			end
+		end
+
+		return countAffected
+	`,
+
+	"purge": `
+		local call = redis.call
+
+		local queueToPurge = KEYS[1]
+		local priorityQueue = KEYS[2]
+
+		local countAffected = 0
+		local countOfPrioritizedAffected = 0
+
+		local countAffected = call("LLen", queueToPurge)
+
+		for i=1,countAffected do
+			local jobId = call("RPop", queueToPurge)
+			call("DEL", jobId .. "_value")
+			call("DEL", jobId .. "_priority")
+		end
+
+		if priorityQueue then
+			local countOfPrioritizedAffected = call("ZCount", priorityQueue, '-inf', '+inf')
+			countAffected = countAffected + countOfPrioritizedAffected
+
+			for i=1,countOfPrioritizedAffected do
+				local jobId = call("ZPOPMAX", priorityQueue)
+				call("DEL", jobId .. "_value")
+				call("DEL", jobId .. "_priority")
+			end
+		end
+
+		return countAffected
+	`,
 }
